@@ -1,0 +1,314 @@
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="mobile-web-app-capable" content="yes">
+	<title>Adesa Run List</title>
+    <link rel="icon" type="image/ico" href="favicon.ico" />
+	<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script-->
+	<script src="jquery-2.1.4.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+			$("#appraisal").hide();
+			$.ajax({
+				type: "POST",
+				url: "tblAdesaRL.asmx/SelectRList",
+				contentType: "application/json; charset=utf-8",
+				dataType: "json",
+				data: "{}",
+				cache:false,
+				async:true,
+				crossDomain: true,
+				success: function (data, status) {
+					result = data.d;
+					splitRList(result);
+					//alert(result);
+				},
+				error: function (data, status, error) {
+					console.log("ERROR: " + data.statusText)
+					//alert(data.statusText)
+				}				
+			});
+			$(document).on("click", "#tablelist table tr td", function (event) {  //use this for dynamically created table
+				event.preventDefault();
+				//this gets the rowIndex and tdIndex of the clicked cell
+				var rowIndex = $(this).parent().index('#tablelist tr');
+				var tdIndex = $(this).index('#tablelist tr:eq('+rowIndex+') td');
+				//the vin is the first cell of every vehicle and there are 15 cells for each vehicle
+				var vin = $( "td:eq("+(parseInt(rowIndex/4)*15)+")" ).text(); 
+				//alert(rowIndex+" "+tdIndex);
+				//We use the modulo of the row index because the run number spans 4 mows
+				//the tdIndex of the run number is 1.
+				if ((rowIndex % 4)==0 && tdIndex==1)
+				{
+					//alert('Row Index: '+(rowIndex)+'\nColumn Index: '+(tdIndex));
+					//Note there is a hidden column in the table before the run number
+					//that holds the VIN and it like the run number spans 4 rows.
+					//There are 15 cells for each vehicle, counting the hidden.
+					var theMake = $( "td:eq("+(rowIndex/4*15 + tdIndex+1)+")" ).text(); 
+					var theMiles = $( "td:eq("+(rowIndex/4*15 + tdIndex+4)+")" ).text();
+					var theDriveTrain = $( "td:eq("+(rowIndex/4*15 + tdIndex+6)+")" ).text();
+					var theavgBB = $( "td:eq("+(rowIndex/4*15 + tdIndex+8)+")" ).text();
+					var theclnBB = $( "td:eq("+(rowIndex/4*15 + tdIndex+9)+")" ).text();
+					var theMMRbelow = $( "td:eq("+(rowIndex/4*15 + tdIndex+10)+")" ).text();
+					var theMMRavg = $( "td:eq("+(rowIndex/4*15 + tdIndex+11)+")" ).text();
+					var theMMRabove = $( "td:eq("+(rowIndex/4*15 + tdIndex+12)+")" ).text();
+					var theMMR = $( "td:eq("+(rowIndex/4*15 + tdIndex+13)+")" ).text();
+					var yr = theMake.substring(0,4);
+					var space2 = theMake.indexOf(" ", 5)
+					var make = theMake.substring(5, space2);
+                    $("#descript").html(theMake + " (" + theDriveTrain + ")&nbsp;&nbsp;&nbsp;" +   
+									    theavgBB + "&nbsp;&nbsp;&nbsp;" +  theclnBB + "&nbsp;&nbsp;&nbsp;" + 
+					                    theMMR + "&nbsp;&nbsp;&nbsp;" + vin + "&nbsp;&nbsp;&nbsp;" + theMiles);
+                    $("#ifMarketReports").attr("src", "mMarketReportsRL.aspx?yr=" + yr + "&make=" + make);
+                    $("#ifmmr").attr("src", "https://m.manheim.com/mobile/vin_decode?vin=" + vin + "&commit=Search+By+VIN");
+					//alert(theMake+" "+theMiles+" "+theavgBB+" "+theclnBB+" "+theMMRbelow+" "+theMMRavg+" "+theMMRabove+" "+theMMR);
+					$("#appraisal").show();
+					$("#tablelist").hide();
+					$("#tablevehicle").hide();
+					$("#btnback").show();
+					return;
+				}
+				//alert("VIN:" +vin);	
+				$.ajax({
+					type: "POST",
+					url: "tblAdesaRL.asmx/SelectVehicle",
+					contentType: "application/json; charset=utf-8",
+					dataType: "json",
+					data: "{vin:'" + vin + "'}",
+					cache:false,
+					async:true,
+					crossDomain: true,
+					success: function (data, status) {
+						result = data.d;
+						//console.log(result);
+						splitVehicle(result);
+					},
+					error: function (data, status, error) {
+						console.log("ERROR: " + data.statusText)
+						//alert(data.statusText)
+					}				
+				});
+			});
+			$("#btnback").click(function(){
+				$("#tablevehicle").hide();
+				$("#appraisal").hide();
+				$("#btnback").hide();
+				$("#tablelist").show();
+			})
+
+			document.addEventListener("deviceready", onDeviceReady, false);
+				function onDeviceReady() {
+					document.addEventListener("backbutton", function (e) {
+					e.preventDefault();
+				}, false );
+			}
+			/*
+			//catches the back button event
+			window.onpopstate = function() {
+   				//alert("clicked back button");
+			    $("#tablevehicle").hide();
+				$("#btnback").hide();
+				$("#tablelist").show();
+				}; history.pushState({}, '');
+			});
+			*/
+		});
+		function splitRList(result){
+			var tbl="<table>";
+			result=result.replace(/_z-y-x_\r\n/g, "\r\n");
+			var linearr = result.split("\r\n");
+			for (var i=0; i< linearr.length-1; i++) {
+				var fieldsarr = linearr[i].split("_z-y-x_");
+				//alert(tbl);
+				for (var x=0; x< fieldsarr.length; x++){
+					if(x==0)
+					{
+						tbl+="<tr><td class='ftd' rowspan='4'>" + fieldsarr[0]+"</td>"; //Vin
+					}
+					if(x==1)
+					{
+						tbl+="<td nowrap rowspan='4' class='col"+x+"'>"+fieldsarr[x]+"</td>"; //RunNum
+					}
+					else if (x==2)
+					{
+						tbl+="<td colspan='4' class='col"+x+"'>"+fieldsarr[x]+"</td></tr>"; //vehicle
+					}
+					else if (x==3)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x].substring(0,2)+"</td>"; //AutoCheck
+					}
+					else if (x==4 || x==5)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x]+"</td>"; //AutoGrande & Odometer
+					}
+					else if(x==6)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x].substring(0,10)+"</td></tr>"; //Annc
+					}
+					else if(x==7)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x].substring(0,5)+"</td>"; //DriveTrain 
+					}
+					else if(x==8 || x==9)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x]+"</td>"; //extColor and avgBB
+					}
+					else if(x==10)
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x]+"</td></tr>"; //clnBB
+					}
+					else if(x>10 && x<15)  
+					{
+						tbl+="<td class='col"+x+"'>"+fieldsarr[x]+"</td>"; // MMRbelow & MMRavg & 
+																				 // MMRabove & MMR
+					}
+				}	
+			}
+			tbl+="</tr></table>";
+			//console.log(tbl);
+			$("#tablelist").html(tbl);
+			$("#timer").hide();
+		}
+
+		function splitVehicle(result){
+			var headersarr=["Vehicle", "Year", "Make", "Model", "Vin", "Odometer", "Seller",  
+			            "AutoGrade", "AutoChekc",  "MMR", "MMRabove", "MMRbavg", "MMRbelow",
+						"Avgbb", "Clnbb", "RunNum", "RunNumPad", "Lane", 
+						"SaleDate", "Annc", "BodyStyle", "IntColor", "Doors", "Engine", 
+						"SaleType", "Extcolor", "Fuel", "Trans", "DriveTrain", "TitleState", 
+						"Addlinfo", "Options", "OdoCond", "StructDmg", "SmokedIn", 
+						"TestDriven", "PaintWork", "Pwdetails", "NonRunr", "Salvage", 
+						"Driveable", "Odors", "KeysRem", "Manuals", "Damages", 
+						"Repaired", "TireCond"];
+			//for (var y=0; y< headersarr.length; y++){
+			//	console.log(headersarr[y]);
+			//}
+			var tbl="<table id='tall'>";
+			result=result.replace(/_z-y-x_\r\n/g, "\r\n");
+			//result=result.replace(/_z-y-x_/g, "<br />");
+			result=result.replace(/_z-y-x_\r\n/g, "\r\n");
+			//var linearr = result.split("\r\n");
+			var fieldsarr = result.split("_z-y-x_");
+			for (var x=0; x< fieldsarr.length; x++){
+				tbl+="<tr><td class='hdr'>"+headersarr[x]+"</td><td class='data'>"+fieldsarr[x]+"</td></tr>";
+			}
+			tbl+="</table>";
+			//console.log(tbl);
+			$("#tablevehicle").html(tbl); //result needs to be changed to tbl
+			$("#tablelist").hide();
+			$("#tablevehicle").show();
+			$("#btnback").show();
+			//$('html, body').animate({
+            //scrollTop:$('#tablevehicle').offset().top
+            //},10);
+			location.href="#tablevehicle";
+
+		}
+
+
+	</script>
+	<style type="text/css">
+		body {
+			background-color: rgb(3, 70, 3);
+		}
+		#headr {
+			background: darkgreen;
+			font-size:14px;
+			font-weight:bold;
+			color:white;
+			position: fixed;
+			top: 0;
+			height: 20px;
+			width: 100%;
+		}
+		#footer {
+			background: darkgreen;
+			position: fixed;
+			bottom: 0;
+			height: 44px;
+			width: 100%;
+		}
+		table { /* Will apply to all tables */
+ 			border-spacing: 1px;
+			padding-top: 20px;
+			padding-bottom: 44px;
+			 /*border-bottom-width: thick;*/
+    		 /* OR border-collapse: collapse; */
+		}
+		tr:nth-child(8n), tr:nth-child(8n-1) , tr:nth-child(8n-2) , tr:nth-child(8n-3) {
+			background: rgb(197, 248, 209);
+		}
+		tr {
+			background: #0AFFC6;
+		}
+		td {
+			vertical-align:text-top;
+			padding: 5px;
+			text-align: center;
+		}
+		.col1, .col2, .col6 {
+			text-align: left;
+		}
+		.col1, .col11, .col12, .col13, .col14 {
+			border-bottom-width: 3px;
+			border-bottom-style: solid;
+		} 
+		.ftd {
+			display:none;
+		}
+		#tablevehicle {
+			color:white;
+		}
+		#btnback {
+			position: fixed;
+			left: 36%;
+			bottom: 10px;
+			display: none;
+		}
+		.hdr {
+			text-align: right;
+			font-weight: bold;
+		}
+		.data {
+			text-align: left;
+		}
+		#tall tr:nth-child(even) {
+			background: rgb(197, 248, 209);
+		}
+		#tall tr {
+			background: #0AFFC6;
+		}
+		#descript {
+			color:white;
+		}
+		#timer {
+			width: 100%;
+			position: fixed;
+			top: 50px;
+		}
+		#indicatorgif {
+			margin-left: 50%;
+		}
+	</style>
+</head>
+<body>
+	<div id="headr">Adesa Run List</div>
+	<div id="timer"><img id="indicatorgif" src="indicator.gif" alt="Timer" /></div>
+	<div id="tablelist" style="width:100%"></div>
+	<div id="tablevehicle" style="width:100%"></div>
+	<div id="footer"><button id="btnback">Back to List</button></div>
+
+	<div id="appraisal">
+		<div id="Market Reports">
+			<iframe id="ifMarketReports" style="width: 100%; min-height: 450px; overflow: scroll;">Your browser does not support iFrames...
+			</iframe>
+			<div id="descript">
+			</div>
+		</div>
+		<div id="MMR">
+			<iframe id="ifmmr" style="width: 100%; min-height: 450px; overflow: scroll;">Your browser does not support iFrames...
+			</iframe>
+		</div>
+	</div>
+</body>
+</html>	
